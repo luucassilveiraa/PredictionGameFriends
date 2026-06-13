@@ -228,25 +228,87 @@ export default function PredictionGame() {
 
   // ---------- Import upcoming official fixtures via Claude + web search ----------
   async function importSchedule() {
-    setSyncState((s) => ({ ...s, running: true, msg: "Fetching official fixtures…" }));
-    try {
-      const prompt =
-        `Today is ${todayStr()}. Search the web for the official FIFA World Cup 2026 match schedule for the next 7 days (${todayStr()} onward). ` +
-        `Respond ONLY with a JSON array, no other text, no markdown. Format: ` +
-        `[{"home":"Team","away":"Team","date":"YYYY-MM-DD","time":"HH:MM","stage":"Group"}]. ` +
-        `Times in US Eastern Time, 24h format. Use a reliable source like fifa.com. Max 25 matches.`;
-      const reply = await askAI(prompt, { search: true });
-      const list = parseJSONReply(reply);
-      const existing = new Set(matches.map((m) => norm(m.home) + norm(m.away) + m.date));
-      const added = (Array.isArray(list) ? list : [])
-        .filter((f) => f.home && f.away && f.date && !existing.has(norm(f.home) + norm(f.away) + f.date))
-        .map((f) => ({ id: uid(), home: f.home, away: f.away, date: f.date, time: f.time || "", stage: f.stage || "Group", homeScore: "", awayScore: "", finished: false }));
-      if (added.length) await saveMatches([...matches, ...added], `${added.length} fixtures imported`);
-      setSyncState((s) => ({ ...s, running: false, msg: added.length ? `${added.length} fixtures added` : "No new fixtures found" }));
-    } catch {
-      setSyncState((s) => ({ ...s, running: false, msg: "Import failed — try again" }));
+  setSyncState((s) => ({ ...s, running: true, msg: "Fetching ESPN fixtures…" }));
+
+  try {
+    const res = await fetch(
+      "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=100"
+    );
+
+    if (!res.ok) {
+      throw new Error("Could not fetch ESPN schedule");
     }
+
+    const data = await res.json();
+    const events = data.events || [];
+
+    const existing = new Set(
+      matches.map((m) => norm(m.home) + norm(m.away) + m.date)
+    );
+
+    const added = events
+      .map((event) => {
+        const comp = event.competitions?.[0];
+        const competitors = comp?.competitors || [];
+
+        const home = competitors.find((c) => c.homeAway === "home");
+        const away = competitors.find((c) => c.homeAway === "away");
+
+        if (!home || !away || !event.date) return null;
+
+        const d = new Date(event.date);
+
+        const date = d.toISOString().slice(0, 10);
+        const time = d.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+          timeZone: "America/New_York",
+        });
+
+        const homeName = home.team?.displayName || home.team?.name;
+        const awayName = away.team?.displayName || away.team?.name;
+
+        if (!homeName || !awayName) return null;
+
+        const isFinished = comp.status?.type?.completed === true;
+
+        return {
+          id: event.id || uid(),
+          home: homeName,
+          away: awayName,
+          date,
+          time,
+          stage: event.season?.slug || "World Cup",
+          homeScore: isFinished ? String(home.score ?? "") : "",
+          awayScore: isFinished ? String(away.score ?? "") : "",
+          finished: isFinished,
+        };
+      })
+      .filter(Boolean)
+      .filter((m) => !existing.has(norm(m.home) + norm(m.away) + m.date));
+
+    if (added.length) {
+      await saveMatches([...matches, ...added], `${added.length} fixtures imported`);
+    } else {
+      flash("No new fixtures found from ESPN");
+    }
+
+    setSyncState((s) => ({
+      ...s,
+      running: false,
+      msg: added.length ? `${added.length} fixtures added` : "No new fixtures found",
+    }));
+  } catch (e) {
+    console.error("ESPN fixture import failed:", e);
+    flash(e.message || "Could not import fixtures");
+    setSyncState((s) => ({
+      ...s,
+      running: false,
+      msg: e.message || "Could not import fixtures",
+    }));
   }
+}
 
   // ---------- Leaderboard ----------
   const board = useMemo(() => {
