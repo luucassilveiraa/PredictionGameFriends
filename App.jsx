@@ -507,15 +507,16 @@ function PdfUpload({ players, matches, preds, onSave }) {
     try {
       const b64 = await fileToBase64(file);
       const matchList = matches.map((m) => `{"id":"${m.id}","home":"${m.home}","away":"${m.away}","date":"${m.date || ""}"}`).join("\n");
-      const reply = await askClaude([
-        { type: "document", source: { type: "base64", media_type: "application/pdf", data: b64 } },
-        { type: "text", text:
-          `This PDF is a friend's World Cup prediction sheet. Here is our official match list:\n${matchList}\n\n` +
-          `Extract the person's name (if written) and their predicted score for each match you can match to the list. ` +
-          `Match teams even if spelled slightly differently or in another language. ` +
-          `Respond ONLY with JSON, no other text, no markdown: ` +
-          `{"name":"detected name or empty string","picks":[{"id":"match id from the list","h":home goals,"a":away goals}]}` },
-      ]);
+      //const reply = await askClaude([
+      //  { type: "document", source: { type: "base64", media_type: "application/pdf", data: b64 } },
+      //  { type: "text", text:
+      //    `This PDF is a friend's World Cup prediction sheet. Here is our official match list:\n${matchList}\n\n` +
+      //    `Extract the person's name (if written) and their predicted score for each match you can match to the list. ` +
+      //    `Match teams even if spelled slightly differently or in another language. ` +
+      //    `Respond ONLY with JSON, no other text, no markdown: ` +
+      //    `{"name":"detected name or empty string","picks":[{"id":"match id from the list","h":home goals,"a":away goals}]}` },
+      //]);
+      throw new Error("PDF upload is not connected to OpenAI yet. Add predictions manually for now.");
       const parsed = parseJSONReply(reply);
       const valid = (parsed.picks || []).filter((p) => matches.some((m) => m.id === p.id) && Number.isInteger(p.h) && Number.isInteger(p.a));
       if (!valid.length) throw new Error("No predictions matched our fixture list. Check that the matches exist on the Matches tab.");
