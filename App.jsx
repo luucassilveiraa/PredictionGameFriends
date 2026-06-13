@@ -68,22 +68,21 @@ async function saveJSON(key, value) {
   catch { return false; }
 }
 
-// ---------------- Claude API helpers ----------------
-async function askClaude(content, { search = false } = {}) {
-  const body = {
-    model: "claude-sonnet-4-6",
-    max_tokens: 1000,
-    messages: [{ role: "user", content }],
-  };
-  if (search) body.tools = [{ type: "web_search_20250305", name: "web_search" }];
-  const res = await fetch("/api/claude", {
+// ---------------- OpenAI API helper ----------------
+async function askAI(prompt, { search = false } = {}) {
+  const res = await fetch("/api/ai", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ prompt, search }),
   });
+
   const data = await res.json();
-  if (data.error) throw new Error(data.error.message || "API error");
-  return (data.content || []).map((i) => (i.type === "text" ? i.text : "")).filter(Boolean).join("\n");
+
+  if (!res.ok) {
+    throw new Error(data.error || "AI request failed");
+  }
+
+  return data.text;
 }
 function parseJSONReply(text) {
   const clean = text.replace(/```json|```/g, "").trim();
