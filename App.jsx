@@ -235,7 +235,7 @@ export default function PredictionGame() {
         `Respond ONLY with a JSON array, no other text, no markdown. Format: ` +
         `[{"home":"Team","away":"Team","date":"YYYY-MM-DD","time":"HH:MM","stage":"Group"}]. ` +
         `Times in US Eastern Time, 24h format. Use a reliable source like fifa.com. Max 25 matches.`;
-      const reply = await askClaude(prompt, { search: true });
+      const reply = await askAI(prompt, { search: true });
       const list = parseJSONReply(reply);
       const existing = new Set(matches.map((m) => norm(m.home) + norm(m.away) + m.date));
       const added = (Array.isArray(list) ? list : [])
