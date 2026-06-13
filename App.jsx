@@ -204,7 +204,7 @@ export default function PredictionGame() {
         `where h is the home team's final score and a is the away team's. ` +
         `Include ONLY matches that are fully finished with a confirmed final score from a reliable source. ` +
         `If none have finished, respond with [].`;
-      const reply = await askClaude(prompt, { search: true });
+      const reply = await askAI(prompt, { search: true });
       const results = parseJSONReply(reply);
       let updated = 0;
       const next = currentMatches.map((m) => {
